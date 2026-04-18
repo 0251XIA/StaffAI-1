@@ -1,0 +1,16 @@
+{
+  "exec-1775011806833-0000": [
+    {
+      "id": "tool-exec-1775011806833-0000-0",
+      "toolName": "read_file",
+      "actorRole": "code-reviewer",
+      "riskLevel": "low",
+      "taskId": "exec",
+      "executionId": "exec-1775011806833-0000",
+      "status": "running",
+      "inputSummary": "Tool call 1 input",
+      "outputSummary": "Tool call 1 output",
+      "createdAt": "2026-03-28T12:12:48.026Z"
+    }
+  ]
+}

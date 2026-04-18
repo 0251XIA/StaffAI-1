@@ -1,0 +1,816 @@
+import fs from 'node:fs';
+import type {
+  ApprovalRecord,
+  CostLogEntry,
+  ExecutionTraceEvent,
+  ExecutionRecord,
+  TaskAssignment,
+  TaskRecord,
+  ToolCallLog,
+  WorkflowPlan,
+} from '../shared/task-types';
+import type { ApprovalChain } from '../shared/approval-chain-types';
+import type { PendingHumanInput } from '../shared/hitl-types';
+import type { RequirementDraft, AgentMemory, OKRRecord } from '../shared/intent-types';
+
+function readJsonFile<T>(filePath: string, fallback: T): T {
+  if (!fs.existsSync(filePath)) {
+    return fallback;
+  }
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T;
+}
+
+function writeJsonFile(filePath: string, data: unknown) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+export interface TaskRepository {
+  list(): Promise<TaskRecord[]>;
+  getById(taskId: string): Promise<TaskRecord | null>;
+  save(task: TaskRecord): Promise<void>;
+  update(taskId: string, updater: (task: TaskRecord) => TaskRecord): Promise<TaskRecord | null>;
+}
+
+export interface ApprovalRepository {
+  list(): Promise<ApprovalRecord[]>;
+  listByTaskId(taskId: string): Promise<ApprovalRecord[]>;
+  save(approval: ApprovalRecord): Promise<void>;
+  updateStatus(approvalId: string, status: ApprovalRecord['status']): Promise<ApprovalRecord | null>;
+}
+
+export interface ApprovalChainRepository {
+  list(): Promise<ApprovalChain[]>;
+  getByTaskId(taskId: string): Promise<ApprovalChain | null>;
+  save(chain: ApprovalChain): Promise<void>;
+  delete(taskId: string): Promise<boolean>;
+}
+
+export interface ExecutionRepository {
+  list(): Promise<ExecutionRecord[]>;
+  getById(executionId: string): Promise<ExecutionRecord | null>;
+  listByTaskId(taskId: string): Promise<ExecutionRecord[]>;
+  save(execution: ExecutionRecord): Promise<void>;
+  update(
+    executionId: string,
+    updater: (execution: ExecutionRecord) => ExecutionRecord
+  ): Promise<ExecutionRecord | null>;
+}
+
+export interface TaskAssignmentRepository {
+  list(): Promise<TaskAssignment[]>;
+  getById(assignmentId: string): Promise<TaskAssignment | null>;
+  listByTaskId(taskId: string): Promise<TaskAssignment[]>;
+  save(assignment: TaskAssignment): Promise<void>;
+  update(
+    assignmentId: string,
+    updater: (assignment: TaskAssignment) => TaskAssignment
+  ): Promise<TaskAssignment | null>;
+}
+
+export interface WorkflowPlanRepository {
+  list(): Promise<WorkflowPlan[]>;
+  getByTaskId(taskId: string): Promise<WorkflowPlan | null>;
+  save(plan: WorkflowPlan): Promise<void>;
+  update(taskId: string, updater: (plan: WorkflowPlan) => WorkflowPlan): Promise<WorkflowPlan | null>;
+}
+
+export interface ToolCallLogRepository {
+  list(): Promise<ToolCallLog[]>;
+  getById(toolCallLogId: string): Promise<ToolCallLog | null>;
+  listByTaskId(taskId: string): Promise<ToolCallLog[]>;
+  listByExecutionId(executionId: string): Promise<ToolCallLog[]>;
+  save(toolCallLog: ToolCallLog): Promise<void>;
+  update(toolCallLogId: string, updater: (toolCallLog: ToolCallLog) => ToolCallLog): Promise<ToolCallLog | null>;
+}
+
+export interface ExecutionTraceRepository {
+  list(): Promise<ExecutionTraceEvent[]>;
+  listByTaskId(taskId: string): Promise<ExecutionTraceEvent[]>;
+  listByExecutionId(executionId: string): Promise<ExecutionTraceEvent[]>;
+  append(event: ExecutionTraceEvent): Promise<void>;
+}
+
+export interface CostLogRepository {
+  list(): Promise<CostLogEntry[]>;
+  listByTaskId(taskId: string): Promise<CostLogEntry[]>;
+  listByExecutionId(executionId: string): Promise<CostLogEntry[]>;
+  save(entry: CostLogEntry): Promise<void>;
+}
+
+export interface PendingHumanInputRepository {
+  list(): Promise<import('../shared/hitl-types').PendingHumanInput[]>;
+  getById(id: string): Promise<import('../shared/hitl-types').PendingHumanInput | null>;
+  listByAssignmentId(assignmentId: string): Promise<import('../shared/hitl-types').PendingHumanInput[]>;
+  listByTaskId(taskId: string): Promise<import('../shared/hitl-types').PendingHumanInput[]>;
+  save(input: import('../shared/hitl-types').PendingHumanInput): Promise<void>;
+  update(id: string, updater: (input: import('../shared/hitl-types').PendingHumanInput) => import('../shared/hitl-types').PendingHumanInput): Promise<import('../shared/hitl-types').PendingHumanInput | null>;
+}
+export interface RequirementDraftRepository {
+  list(): Promise<RequirementDraft[]>;
+  getById(id: string): Promise<RequirementDraft | null>;
+  save(draft: RequirementDraft): Promise<void>;
+  update(id: string, updater: (draft: RequirementDraft) => RequirementDraft): Promise<RequirementDraft | null>;
+  delete(id: string): Promise<boolean>;
+}
+
+export interface AgentMemoryRepository {
+  getAgentMemoryByAgentId(agentId: string): Promise<AgentMemory | null>;
+  saveAgentMemory(memory: AgentMemory): Promise<void>;
+}
+
+export interface OKRRepository {
+  list(): Promise<OKRRecord[]>;
+  getById(id: string): Promise<OKRRecord | null>;
+  save(okr: OKRRecord): Promise<void>;
+  update(id: string, updater: (okr: OKRRecord) => OKRRecord): Promise<OKRRecord | null>;
+}
+
+export function createFileTaskRepository(filePath: string): TaskRepository {
+  return {
+    async list() {
+      return readJsonFile<TaskRecord[]>(filePath, []);
+    },
+    async getById(taskId) {
+      return (await this.list()).find((task) => task.id === taskId) || null;
+    },
+    async save(task) {
+      const tasks = await this.list();
+      tasks.push(task);
+      writeJsonFile(filePath, tasks);
+    },
+    async update(taskId, updater) {
+      const tasks = await this.list();
+      const index = tasks.findIndex((task) => task.id === taskId);
+      if (index < 0) {
+        return null;
+      }
+
+      const updated = updater(tasks[index]);
+      tasks[index] = updated;
+      writeJsonFile(filePath, tasks);
+      return updated;
+    },
+  };
+}
+
+export function createFileApprovalRepository(filePath: string): ApprovalRepository {
+  return {
+    async list() {
+      return readJsonFile<ApprovalRecord[]>(filePath, []);
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((approval) => approval.taskId === taskId);
+    },
+    async save(approval) {
+      const approvals = await this.list();
+      approvals.push(approval);
+      writeJsonFile(filePath, approvals);
+    },
+    async updateStatus(approvalId, status) {
+      const approvals = await this.list();
+      const target = approvals.find((approval) => approval.id === approvalId);
+      if (!target) {
+        return null;
+      }
+
+      target.status = status;
+      target.resolvedAt = new Date().toISOString();
+      writeJsonFile(filePath, approvals);
+      return target;
+    },
+  };
+}
+
+export function createFileApprovalChainRepository(filePath: string): ApprovalChainRepository {
+  return {
+    async list() {
+      return readJsonFile<ApprovalChain[]>(filePath, []);
+    },
+    async getByTaskId(taskId) {
+      return (await this.list()).find((chain) => chain.taskId === taskId) || null;
+    },
+    async save(chain) {
+      const chains = await this.list();
+      const index = chains.findIndex((c) => c.taskId === chain.taskId);
+      if (index >= 0) {
+        chains[index] = chain;
+      } else {
+        chains.push(chain);
+      }
+      writeJsonFile(filePath, chains);
+    },
+    async delete(taskId) {
+      const chains = await this.list();
+      const filtered = chains.filter((c) => c.taskId !== taskId);
+      if (filtered.length === chains.length) {
+        return false;
+      }
+      writeJsonFile(filePath, filtered);
+      return true;
+    },
+  };
+}
+
+export function createFileExecutionRepository(filePath: string): ExecutionRepository {
+  return {
+    async list() {
+      return readJsonFile<ExecutionRecord[]>(filePath, []);
+    },
+    async getById(executionId) {
+      return (await this.list()).find((execution) => execution.id === executionId) || null;
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((execution) => execution.taskId === taskId);
+    },
+    async save(execution) {
+      const executions = await this.list();
+      executions.push(execution);
+      writeJsonFile(filePath, executions);
+    },
+    async update(executionId, updater) {
+      const executions = await this.list();
+      const index = executions.findIndex((execution) => execution.id === executionId);
+      if (index < 0) {
+        return null;
+      }
+
+      const updated = updater(executions[index]);
+      executions[index] = updated;
+      writeJsonFile(filePath, executions);
+      return updated;
+    },
+  };
+}
+
+export function createInMemoryTaskRepository(seed: TaskRecord[] = []): TaskRepository {
+  const tasks = [...seed];
+  return {
+    async list() {
+      return [...tasks];
+    },
+    async getById(taskId) {
+      return tasks.find((task) => task.id === taskId) || null;
+    },
+    async save(task) {
+      tasks.push(task);
+    },
+    async update(taskId, updater) {
+      const index = tasks.findIndex((task) => task.id === taskId);
+      if (index < 0) {
+        return null;
+      }
+      tasks[index] = updater(tasks[index]);
+      return tasks[index];
+    },
+  };
+}
+
+export function createInMemoryApprovalRepository(seed: ApprovalRecord[] = []): ApprovalRepository {
+  const approvals = [...seed];
+  return {
+    async list() {
+      return [...approvals];
+    },
+    async listByTaskId(taskId) {
+      return approvals.filter((approval) => approval.taskId === taskId);
+    },
+    async save(approval) {
+      approvals.push(approval);
+    },
+    async updateStatus(approvalId, status) {
+      const target = approvals.find((approval) => approval.id === approvalId);
+      if (!target) {
+        return null;
+      }
+      target.status = status;
+      target.resolvedAt = new Date().toISOString();
+      return target;
+    },
+  };
+}
+
+export function createInMemoryApprovalChainRepository(seed: ApprovalChain[] = []): ApprovalChainRepository {
+  const chains = [...seed];
+  return {
+    async list() {
+      return [...chains];
+    },
+    async getByTaskId(taskId) {
+      return chains.find((chain) => chain.taskId === taskId) || null;
+    },
+    async save(chain) {
+      const index = chains.findIndex((c) => c.taskId === chain.taskId);
+      if (index >= 0) {
+        chains[index] = chain;
+      } else {
+        chains.push(chain);
+      }
+    },
+    async delete(taskId) {
+      const index = chains.findIndex((c) => c.taskId === taskId);
+      if (index < 0) {
+        return false;
+      }
+      chains.splice(index, 1);
+      return true;
+    },
+  };
+}
+
+export function createInMemoryExecutionRepository(seed: ExecutionRecord[] = []): ExecutionRepository {
+  const executions = [...seed];
+  return {
+    async list() {
+      return [...executions];
+    },
+    async getById(executionId) {
+      return executions.find((execution) => execution.id === executionId) || null;
+    },
+    async listByTaskId(taskId) {
+      return executions.filter((execution) => execution.taskId === taskId);
+    },
+    async save(execution) {
+      executions.push(execution);
+    },
+    async update(executionId, updater) {
+      const index = executions.findIndex((execution) => execution.id === executionId);
+      if (index < 0) {
+        return null;
+      }
+      executions[index] = updater(executions[index]);
+      return executions[index];
+    },
+  };
+}
+
+export function createFileTaskAssignmentRepository(filePath: string): TaskAssignmentRepository {
+  return {
+    async list() {
+      return readJsonFile<TaskAssignment[]>(filePath, []);
+    },
+    async getById(assignmentId) {
+      return (await this.list()).find((assignment) => assignment.id === assignmentId) || null;
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((assignment) => assignment.taskId === taskId);
+    },
+    async save(assignment) {
+      const assignments = await this.list();
+      assignments.push(assignment);
+      writeJsonFile(filePath, assignments);
+    },
+    async update(assignmentId, updater) {
+      const assignments = await this.list();
+      const index = assignments.findIndex((assignment) => assignment.id === assignmentId);
+      if (index < 0) {
+        return null;
+      }
+
+      const updated = updater(assignments[index]);
+      assignments[index] = updated;
+      writeJsonFile(filePath, assignments);
+      return updated;
+    },
+  };
+}
+
+export function createFileWorkflowPlanRepository(filePath: string): WorkflowPlanRepository {
+  return {
+    async list() {
+      return readJsonFile<WorkflowPlan[]>(filePath, []);
+    },
+    async getByTaskId(taskId) {
+      return (await this.list()).find((plan) => plan.taskId === taskId) || null;
+    },
+    async save(plan) {
+      const plans = await this.list();
+      plans.push(plan);
+      writeJsonFile(filePath, plans);
+    },
+    async update(taskId, updater) {
+      const plans = await this.list();
+      const index = plans.findIndex((plan) => plan.taskId === taskId);
+      if (index < 0) {
+        return null;
+      }
+
+      const updated = updater(plans[index]);
+      plans[index] = updated;
+      writeJsonFile(filePath, plans);
+      return updated;
+    },
+  };
+}
+
+export function createInMemoryTaskAssignmentRepository(seed: TaskAssignment[] = []): TaskAssignmentRepository {
+  const assignments = [...seed];
+  return {
+    async list() {
+      return [...assignments];
+    },
+    async getById(assignmentId) {
+      return assignments.find((assignment) => assignment.id === assignmentId) || null;
+    },
+    async listByTaskId(taskId) {
+      return assignments.filter((assignment) => assignment.taskId === taskId);
+    },
+    async save(assignment) {
+      assignments.push(assignment);
+    },
+    async update(assignmentId, updater) {
+      const index = assignments.findIndex((assignment) => assignment.id === assignmentId);
+      if (index < 0) {
+        return null;
+      }
+      assignments[index] = updater(assignments[index]);
+      return assignments[index];
+    },
+  };
+}
+
+export function createInMemoryWorkflowPlanRepository(seed: WorkflowPlan[] = []): WorkflowPlanRepository {
+  const plans = [...seed];
+  return {
+    async list() {
+      return [...plans];
+    },
+    async getByTaskId(taskId) {
+      return plans.find((plan) => plan.taskId === taskId) || null;
+    },
+    async save(plan) {
+      plans.push(plan);
+    },
+    async update(taskId, updater) {
+      const index = plans.findIndex((plan) => plan.taskId === taskId);
+      if (index < 0) {
+        return null;
+      }
+      plans[index] = updater(plans[index]);
+      return plans[index];
+    },
+  };
+}
+
+export function createFileToolCallLogRepository(filePath: string): ToolCallLogRepository {
+  return {
+    async list() {
+      return readJsonFile<ToolCallLog[]>(filePath, []);
+    },
+    async getById(toolCallLogId) {
+      return (await this.list()).find((toolCallLog) => toolCallLog.id === toolCallLogId) || null;
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((toolCallLog) => toolCallLog.taskId === taskId);
+    },
+    async listByExecutionId(executionId) {
+      return (await this.list()).filter((toolCallLog) => toolCallLog.executionId === executionId);
+    },
+    async save(toolCallLog) {
+      const toolCallLogs = await this.list();
+      toolCallLogs.push(toolCallLog);
+      writeJsonFile(filePath, toolCallLogs);
+    },
+    async update(toolCallLogId, updater) {
+      const toolCallLogs = await this.list();
+      const index = toolCallLogs.findIndex((toolCallLog) => toolCallLog.id === toolCallLogId);
+      if (index < 0) {
+        return null;
+      }
+
+      const updated = updater(toolCallLogs[index]);
+      toolCallLogs[index] = updated;
+      writeJsonFile(filePath, toolCallLogs);
+      return updated;
+    },
+  };
+}
+
+export function createFileExecutionTraceRepository(filePath: string): ExecutionTraceRepository {
+  return {
+    async list() {
+      return readJsonFile<ExecutionTraceEvent[]>(filePath, []);
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((event) => event.taskId === taskId);
+    },
+    async listByExecutionId(executionId) {
+      return (await this.list()).filter((event) => event.executionId === executionId);
+    },
+    async append(event) {
+      const events = await this.list();
+      events.push(event);
+      writeJsonFile(filePath, events);
+    },
+  };
+}
+
+export function createInMemoryExecutionTraceRepository(seed: ExecutionTraceEvent[] = []): ExecutionTraceRepository {
+  const events = [...seed];
+  return {
+    async list() {
+      return [...events];
+    },
+    async listByTaskId(taskId) {
+      return events.filter((event) => event.taskId === taskId);
+    },
+    async listByExecutionId(executionId) {
+      return events.filter((event) => event.executionId === executionId);
+    },
+    async append(event) {
+      events.push(event);
+    },
+  };
+}
+
+export function createFileCostLogRepository(filePath: string): CostLogRepository {
+  return {
+    async list() {
+      return readJsonFile<CostLogEntry[]>(filePath, []);
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((entry) => entry.taskId === taskId);
+    },
+    async listByExecutionId(executionId) {
+      return (await this.list()).filter((entry) => entry.executionId === executionId);
+    },
+    async save(entry) {
+      const entries = await this.list();
+      entries.push(entry);
+      writeJsonFile(filePath, entries);
+    },
+  };
+}
+
+export function createInMemoryCostLogRepository(seed: CostLogEntry[] = []): CostLogRepository {
+  const entries = [...seed];
+  return {
+    async list() {
+      return [...entries];
+    },
+    async listByTaskId(taskId) {
+      return entries.filter((entry) => entry.taskId === taskId);
+    },
+    async listByExecutionId(executionId) {
+      return entries.filter((entry) => entry.executionId === executionId);
+    },
+    async save(entry) {
+      entries.push(entry);
+    },
+  };
+}
+
+export function createInMemoryToolCallLogRepository(seed: ToolCallLog[] = []): ToolCallLogRepository {
+  const toolCallLogs = [...seed];
+  return {
+    async list() {
+      return [...toolCallLogs];
+    },
+    async getById(toolCallLogId) {
+      return toolCallLogs.find((toolCallLog) => toolCallLog.id === toolCallLogId) || null;
+    },
+    async listByTaskId(taskId) {
+      return toolCallLogs.filter((toolCallLog) => toolCallLog.taskId === taskId);
+    },
+    async listByExecutionId(executionId) {
+      return toolCallLogs.filter((toolCallLog) => toolCallLog.executionId === executionId);
+    },
+    async save(toolCallLog) {
+      toolCallLogs.push(toolCallLog);
+    },
+    async update(toolCallLogId, updater) {
+      const index = toolCallLogs.findIndex((toolCallLog) => toolCallLog.id === toolCallLogId);
+      if (index < 0) {
+        return null;
+      }
+      toolCallLogs[index] = updater(toolCallLogs[index]);
+      return toolCallLogs[index];
+    },
+  };
+}
+
+export function createFileRequirementDraftRepository(filePath: string): RequirementDraftRepository {
+  return {
+    async list() {
+      return readJsonFile<RequirementDraft[]>(filePath, []);
+    },
+    async getById(id) {
+      return (await this.list()).find((draft) => draft.id === id) || null;
+    },
+    async save(draft) {
+      const drafts = await this.list();
+      const index = drafts.findIndex((d) => d.id === draft.id);
+      if (index >= 0) {
+        drafts[index] = draft;
+      } else {
+        drafts.push(draft);
+      }
+      writeJsonFile(filePath, drafts);
+    },
+    async update(id, updater) {
+      const drafts = await this.list();
+      const index = drafts.findIndex((draft) => draft.id === id);
+      if (index < 0) {
+        return null;
+      }
+
+      const updated = updater(drafts[index]);
+      drafts[index] = updated;
+      writeJsonFile(filePath, drafts);
+      return updated;
+    },
+    async delete(id) {
+      const drafts = await this.list();
+      const index = drafts.findIndex((draft) => draft.id === id);
+      if (index < 0) {
+        return false;
+      }
+      drafts.splice(index, 1);
+      writeJsonFile(filePath, drafts);
+      return true;
+    },
+  };
+}
+
+export function createInMemoryRequirementDraftRepository(seed: RequirementDraft[] = []): RequirementDraftRepository {
+  const drafts = [...seed];
+  return {
+    async list() {
+      return [...drafts];
+    },
+    async getById(id) {
+      return drafts.find((draft) => draft.id === id) || null;
+    },
+    async save(draft) {
+      drafts.push(draft);
+    },
+    async update(id, updater) {
+      const index = drafts.findIndex((draft) => draft.id === id);
+      if (index < 0) {
+        return null;
+      }
+      drafts[index] = updater(drafts[index]);
+      return drafts[index];
+    },
+    async delete(id) {
+      const index = drafts.findIndex((draft) => draft.id === id);
+      if (index < 0) {
+        return false;
+      }
+      drafts.splice(index, 1);
+      return true;
+    },
+  };
+}
+
+export function createFilePendingHumanInputRepository(filePath: string): PendingHumanInputRepository {
+  return {
+    async list() {
+      return readJsonFile<PendingHumanInput[]>(filePath, []);
+    },
+    async getById(id) {
+      return (await this.list()).find((input) => input.id === id) || null;
+    },
+    async listByAssignmentId(assignmentId) {
+      return (await this.list()).filter((input) => input.assignmentId === assignmentId);
+    },
+    async listByTaskId(taskId) {
+      return (await this.list()).filter((input) => input.taskId === taskId);
+    },
+    async save(input) {
+      const inputs = await this.list();
+      inputs.push(input);
+      writeJsonFile(filePath, inputs);
+    },
+    async update(id, updater) {
+      const inputs = await this.list();
+      const index = inputs.findIndex((input) => input.id === id);
+      if (index < 0) {
+        return null;
+      }
+      const updated = updater(inputs[index]);
+      inputs[index] = updated;
+      writeJsonFile(filePath, inputs);
+      return updated;
+    },
+  };
+}
+
+export function createInMemoryPendingHumanInputRepository(seed: PendingHumanInput[] = []): PendingHumanInputRepository {
+  const inputs = [...seed];
+  return {
+    async list() {
+      return [...inputs];
+    },
+    async getById(id) {
+      return inputs.find((input) => input.id === id) || null;
+    },
+    async listByAssignmentId(assignmentId) {
+      return inputs.filter((input) => input.assignmentId === assignmentId);
+    },
+    async listByTaskId(taskId) {
+      return inputs.filter((input) => input.taskId === taskId);
+    },
+    async save(input) {
+      inputs.push(input);
+    },
+    async update(id, updater) {
+      const index = inputs.findIndex((input) => input.id === id);
+      if (index < 0) {
+        return null;
+      }
+      inputs[index] = updater(inputs[index]);
+      return inputs[index];
+    },
+  };
+}
+
+export function createFileAgentMemoryRepository(filePath: string): AgentMemoryRepository {
+  return {
+    async getAgentMemoryByAgentId(agentId: string) {
+      const memories = readJsonFile<AgentMemory[]>(filePath, []);
+      return memories.find((m) => m.agentId === agentId) || null;
+    },
+    async saveAgentMemory(memory: AgentMemory) {
+      const memories = readJsonFile<AgentMemory[]>(filePath, []);
+      const index = memories.findIndex((m) => m.agentId === memory.agentId);
+      if (index >= 0) {
+        memories[index] = memory;
+      } else {
+        memories.push(memory);
+      }
+      writeJsonFile(filePath, memories);
+    },
+  };
+}
+
+export function createInMemoryAgentMemoryRepository(seed: AgentMemory[] = []): AgentMemoryRepository {
+  const memories = [...seed];
+  return {
+    async getAgentMemoryByAgentId(agentId: string) {
+      return memories.find((m) => m.agentId === agentId) || null;
+    },
+    async saveAgentMemory(memory: AgentMemory) {
+      const index = memories.findIndex((m) => m.agentId === memory.agentId);
+      if (index >= 0) {
+        memories[index] = memory;
+      } else {
+        memories.push(memory);
+      }
+    },
+  };
+}
+
+export function createFileOKRRepository(filePath: string): OKRRepository {
+  return {
+    async list() {
+      return readJsonFile<OKRRecord[]>(filePath, []);
+    },
+    async getById(id) {
+      return (await this.list()).find((o) => o.id === id) || null;
+    },
+    async save(okr) {
+      const okrs = await this.list();
+      const index = okrs.findIndex((o) => o.id === okr.id);
+      if (index >= 0) {
+        okrs[index] = okr;
+      } else {
+        okrs.push(okr);
+      }
+      writeJsonFile(filePath, okrs);
+    },
+    async update(id, updater) {
+      const okrs = await this.list();
+      const index = okrs.findIndex((o) => o.id === id);
+      if (index < 0) return null;
+      okrs[index] = updater(okrs[index]);
+      writeJsonFile(filePath, okrs);
+      return okrs[index];
+    },
+  };
+}
+
+export function createInMemoryOKRRepository(seed: OKRRecord[] = []): OKRRepository {
+  const okrs = [...seed];
+  return {
+    async list() {
+      return okrs;
+    },
+    async getById(id) {
+      return okrs.find((o) => o.id === id) || null;
+    },
+    async save(okr) {
+      const index = okrs.findIndex((o) => o.id === okr.id);
+      if (index >= 0) {
+        okrs[index] = okr;
+      } else {
+        okrs.push(okr);
+      }
+    },
+    async update(id, updater) {
+      const index = okrs.findIndex((o) => o.id === id);
+      if (index < 0) return null;
+      okrs[index] = updater(okrs[index]);
+      return okrs[index];
+    },
+  };
+}

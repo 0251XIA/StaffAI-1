@@ -1,0 +1,232 @@
+[
+  {
+    "id": "exec-1775011806833-0000",
+    "taskId": "task-1775011806832-0000",
+    "status": "completed",
+    "executor": "openai",
+    "runtimeName": "openai-api",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-0",
+    "assignmentRole": "reviewer",
+    "inputSnapshot": {
+      "task": "architecture task 1",
+      "description": "Sample architecture task for execution history testing",
+      "agentId": "backend-developer",
+      "mode": "serial"
+    },
+    "outputSnapshot": {
+      "result": "Successfully completed architecture task",
+      "summary": "Task executed by openai on backend-developer",
+      "artifacts": [
+        "artifact-0-1.txt",
+        "artifact-0-2.json"
+      ]
+    },
+    "outputSummary": "Completed architecture analysis and generated recommendations",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous architecture tasks",
+    "startedAt": "2026-03-28T12:56:48.795Z",
+    "endedAt": "2026-03-30T03:47:28.401Z",
+    "completedAt": "2026-03-30T03:47:28.401Z"
+  },
+  {
+    "id": "exec-1775011806833-0001",
+    "taskId": "task-1775011806833-0001",
+    "status": "cancelled",
+    "executor": "codex",
+    "runtimeName": "codex-cli",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-1",
+    "assignmentRole": "reviewer",
+    "inputSnapshot": {
+      "task": "architecture task 2",
+      "description": "Sample architecture task for execution history testing",
+      "agentId": "backend-developer",
+      "mode": "serial"
+    },
+    "outputSummary": "Execution cancelled",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous architecture tasks",
+    "startedAt": "2026-03-28T15:38:29.232Z",
+    "endedAt": "2026-03-30T23:05:11.262Z"
+  },
+  {
+    "id": "exec-1775011806833-0002",
+    "taskId": "task-1775011806833-0002",
+    "status": "paused",
+    "executor": "claude",
+    "runtimeName": "claude-desktop-app",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-2",
+    "assignmentRole": "reviewer",
+    "inputSnapshot": {
+      "task": "workflow dispatch task 3",
+      "description": "Sample workflow_dispatch task for execution history testing",
+      "agentId": "devops-engineer",
+      "mode": "advanced_discussion"
+    },
+    "outputSummary": "Execution paused",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous workflow_dispatch tasks",
+    "startedAt": "2026-03-28T02:09:40.657Z"
+  },
+  {
+    "id": "exec-1775011806833-0003",
+    "taskId": "task-1775011806833-0003",
+    "status": "paused",
+    "executor": "openai",
+    "runtimeName": "openai-api",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-3",
+    "assignmentRole": "reviewer",
+    "inputSnapshot": {
+      "task": "code review task 4",
+      "description": "Sample code_review task for execution history testing",
+      "agentId": "devops-engineer",
+      "mode": "parallel"
+    },
+    "outputSummary": "Execution paused",
+    "startedAt": "2026-03-27T05:23:00.186Z"
+  },
+  {
+    "id": "exec-1775011806833-0004",
+    "taskId": "task-1775011806833-0004",
+    "status": "degraded",
+    "executor": "openai",
+    "runtimeName": "openai-api",
+    "degraded": true,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-4",
+    "assignmentRole": "dispatcher",
+    "inputSnapshot": {
+      "task": "architecture analysis task 5",
+      "description": "Sample architecture_analysis task for execution history testing",
+      "agentId": "product-manager",
+      "mode": "serial"
+    },
+    "outputSummary": "Execution degraded",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous architecture_analysis tasks",
+    "startedAt": "2026-03-28T14:21:24.927Z"
+  },
+  {
+    "id": "exec-1775011806833-0005",
+    "taskId": "task-1775011806833-0005",
+    "status": "paused",
+    "executor": "codex",
+    "runtimeName": "codex-cli",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-5",
+    "assignmentRole": "dispatcher",
+    "inputSnapshot": {
+      "task": "workflow dispatch task 6",
+      "description": "Sample workflow_dispatch task for execution history testing",
+      "agentId": "code-reviewer",
+      "mode": "parallel"
+    },
+    "outputSummary": "Execution paused",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous workflow_dispatch tasks",
+    "startedAt": "2026-03-28T11:27:59.349Z"
+  },
+  {
+    "id": "exec-1775011806833-0006",
+    "taskId": "task-1775011806833-0006",
+    "status": "running",
+    "executor": "claude",
+    "runtimeName": "claude-desktop-app",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-6",
+    "assignmentRole": "secondary",
+    "inputSnapshot": {
+      "task": "quality assurance task 7",
+      "description": "Sample quality_assurance task for execution history testing",
+      "agentId": "ux-designer",
+      "mode": "parallel"
+    },
+    "outputSummary": "Currently processing quality_assurance task",
+    "startedAt": "2026-03-28T01:06:21.499Z"
+  },
+  {
+    "id": "exec-1775011806833-0007",
+    "taskId": "task-1775011806833-0007",
+    "status": "degraded",
+    "executor": "codex",
+    "runtimeName": "codex-cli",
+    "degraded": true,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-7",
+    "assignmentRole": "reviewer",
+    "inputSnapshot": {
+      "task": "backend implementation task 8",
+      "description": "Sample backend_implementation task for execution history testing",
+      "agentId": "devops-engineer",
+      "mode": "parallel"
+    },
+    "outputSummary": "Execution degraded",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous backend_implementation tasks",
+    "startedAt": "2026-03-27T09:14:57.033Z"
+  },
+  {
+    "id": "exec-1775011806833-0008",
+    "taskId": "task-1775011806833-0008",
+    "status": "cancelled",
+    "executor": "codex",
+    "runtimeName": "codex-cli",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-8",
+    "assignmentRole": "primary",
+    "inputSnapshot": {
+      "task": "documentation task 9",
+      "description": "Sample documentation task for execution history testing",
+      "agentId": "code-reviewer",
+      "mode": "advanced_discussion"
+    },
+    "outputSummary": "Execution cancelled",
+    "startedAt": "2026-03-28T17:24:57.525Z",
+    "endedAt": "2026-03-29T17:49:40.461Z"
+  },
+  {
+    "id": "exec-1775011806833-0009",
+    "taskId": "task-1775011806833-0009",
+    "status": "cancelled",
+    "executor": "openai",
+    "runtimeName": "openai-api",
+    "degraded": false,
+    "retryCount": 0,
+    "maxRetries": 3,
+    "timeoutMs": 300000,
+    "assignmentId": "assign-9",
+    "assignmentRole": "reviewer",
+    "inputSnapshot": {
+      "task": "architecture analysis task 10",
+      "description": "Sample architecture_analysis task for execution history testing",
+      "agentId": "backend-developer",
+      "mode": "parallel"
+    },
+    "outputSummary": "Execution cancelled",
+    "memoryContextExcerpt": "Retrieved 3 knowledge entries from previous architecture_analysis tasks",
+    "startedAt": "2026-03-28T03:31:58.686Z",
+    "endedAt": "2026-03-29T20:15:24.355Z"
+  }
+]
